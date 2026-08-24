@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import asyncio
 import datetime
@@ -30,12 +31,12 @@ class AstriaBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"{Fore.GREEN}? Slash commands synced globally!{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✔ Slash commands synced globally!{Style.RESET_ALL}")
 
 bot = AstriaBot()
 
 SYSTEM_PROMPT = """
-You are AstriaBot, the AI core of Cosmic Hangout ??.
+You are AstriaBot, the AI core of Cosmic Hangout.
 Server Culture:
 - Vibe: Gaming, Anime, Music, Social Chat, and Fun.
 - Persona: Friendly, witty, adaptive, sharp, and community-first.
@@ -61,7 +62,7 @@ async def on_ready():
     print(f"  AstriaBot ULTRA Online: {bot.user.name}")
     print(f"  ID: {bot.user.id}")
     print(f"=========================================={Style.RESET_ALL}")
-    await bot.change_presence(activity=discord.Game(name="Cosmic Hangout ?? | /ask"))
+    await bot.change_presence(activity=discord.Game(name="Cosmic Hangout | /ask"))
 
 @bot.event
 async def on_member_join(member: discord.Member):
@@ -77,7 +78,7 @@ async def on_member_join(member: discord.Member):
         channel = bot.get_channel(WELCOME_CHANNEL_ID)
         if channel:
             embed = discord.Embed(
-                title="?? Welcome to Cosmic Hangout!",
+                title="✨ Welcome to Cosmic Hangout!",
                 description=(
                     f"Hey {member.mention}, welcome to the community!\n\n"
                     "We're a hub for gaming, anime, music, and social vibes. "
@@ -87,7 +88,7 @@ async def on_member_join(member: discord.Member):
                 timestamp=datetime.datetime.now(datetime.timezone.utc)
             )
             embed.set_thumbnail(url=member.display_avatar.url)
-            embed.set_footer(text="Cosmic Hangout � Est. July 2024")
+            embed.set_footer(text="Cosmic Hangout • Est. July 2024")
             await channel.send(content=f"Welcome {member.mention}! <a:welcome:1258121907128238132>", embed=embed)
 
 @bot.event
@@ -98,7 +99,7 @@ async def on_message(message: discord.Message):
     # Trigger AI on Mention
     if bot.user in message.mentions:
         if is_cooldown(message.author.id, 4):
-            await message.reply("? Please wait a few seconds before asking me again!", delete_after=5)
+            await message.reply("⏳ Please wait a few seconds before asking me again!", delete_after=5)
             return
 
         clean_prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
@@ -125,7 +126,7 @@ async def on_message(message: discord.Message):
 
                 await message.reply(response)
             except Exception as e:
-                await message.reply("?? AstriaBot experienced a brain glitch connection error.")
+                await message.reply("⚠️ AstriaBot experienced a connection error.")
                 print(f"Groq API Error: {e}")
 
     await bot.process_commands(message)
@@ -144,13 +145,13 @@ async def ask(interaction: discord.Interaction, prompt: str):
             max_tokens=700
         )
         answer = chat_completion.choices[0].message.content
-        embed = discord.Embed(title="?? AstriaBot Intelligence", color=discord.Color.purple())
+        embed = discord.Embed(title="🧠 AstriaBot Intelligence", color=discord.Color.purple())
         embed.add_field(name="Prompt", value=prompt, inline=False)
         embed.add_field(name="Response", value=answer, inline=False)
-        embed.set_footer(text="Cosmic Hangout AI � Powered by Groq")
+        embed.set_footer(text="Cosmic Hangout AI • Powered by Groq")
         await interaction.followup.send(embed=embed)
     except Exception as e:
-        await interaction.followup.send("?? Failed to reach AI backend.", ephemeral=True)
+        await interaction.followup.send("⚠️ Failed to reach AI backend.", ephemeral=True)
         print(f"Groq API Error: {e}")
 
 # --- MODERATION COMMANDS ---
@@ -158,34 +159,34 @@ async def ask(interaction: discord.Interaction, prompt: str):
 @app_commands.checks.has_permissions(ban_members=True)
 async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
     await member.ban(reason=reason)
-    await interaction.response.send_message(f"? Banned {member.mention} | Reason: {reason}")
+    await interaction.response.send_message(f"🚫 Banned {member.mention} | Reason: {reason}")
 
 @bot.tree.command(name="kick", description="Kick a member.")
 @app_commands.checks.has_permissions(kick_members=True)
 async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
     await member.kick(reason=reason)
-    await interaction.response.send_message(f"? Kicked {member.mention} | Reason: {reason}")
+    await interaction.response.send_message(f"👞 Kicked {member.mention} | Reason: {reason}")
 
 @bot.tree.command(name="timeout", description="Mute a member in minutes.")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def timeout(interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "No reason provided"):
     duration = datetime.timedelta(minutes=minutes)
     await member.timeout(duration, reason=reason)
-    await interaction.response.send_message(f"? Timed out {member.mention} for {minutes}m | Reason: {reason}")
+    await interaction.response.send_message(f"⏳ Timed out {member.mention} for {minutes}m | Reason: {reason}")
 
 @bot.tree.command(name="purge", description="Purge multiple messages.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def purge(interaction: discord.Interaction, amount: int):
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount)
-    await interaction.followup.send(f"?? Purged {len(deleted)} messages.", ephemeral=True)
+    await interaction.followup.send(f"🧹 Purged {len(deleted)} messages.", ephemeral=True)
 
 # --- AI ENHANCED TICKET SYSTEM ---
 class AIInteractiveTicketView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Open Ticket ??", style=discord.ButtonStyle.primary, custom_id="astria_ticket_btn")
+    @discord.ui.button(label="Open Ticket 🎫", style=discord.ButtonStyle.primary, custom_id="astria_ticket_btn")
     async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         overwrites = {
@@ -202,14 +203,14 @@ class AIInteractiveTicketView(discord.ui.View):
         # Initial greeting with AI auto-response notice
         await ticket_channel.send(
             f"Welcome {interaction.user.mention}! Staff has been notified.\n"
-            "*AstriaBot AI is listening�feel free to type your issue below for an instant answer while you wait for human support!*"
+            "*AstriaBot AI is listening—feel free to type your issue below for an instant answer while you wait for human support!*"
         )
 
 @bot.tree.command(name="settickets", description="Deploy the AI Ticket Panel.")
 @app_commands.checks.has_permissions(administrator=True)
 async def settickets(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="?? Cosmic Hangout Support",
+        title="🎫 Cosmic Hangout Support",
         description="Click below to open a ticket. AstriaBot AI and our Staff Team are ready to assist!",
         color=discord.Color.purple()
     )
