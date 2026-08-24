@@ -8,9 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 from groq import AsyncGroq
-from colorama import Fore, Style, init
 
-init(autoreset=True)
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -31,7 +29,7 @@ class AstriaBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"{Fore.GREEN}✔ Slash commands synced globally!{Style.RESET_ALL}")
+        print("✔ Slash commands synced globally!")
 
 bot = AstriaBot()
 
@@ -58,10 +56,10 @@ def is_cooldown(user_id: int, seconds: int = 5) -> bool:
 # --- EVENTS ---
 @bot.event
 async def on_ready():
-    print(f"{Fore.CYAN}==========================================")
+    print("==========================================")
     print(f"  AstriaBot ULTRA Online: {bot.user.name}")
     print(f"  ID: {bot.user.id}")
-    print(f"=========================================={Style.RESET_ALL}")
+    print("==========================================")
     await bot.change_presence(activity=discord.Game(name="Cosmic Hangout | /ask"))
 
 @bot.event
@@ -200,7 +198,6 @@ class AIInteractiveTicketView(discord.ui.View):
         )
         await interaction.response.send_message(f"Ticket opened: {ticket_channel.mention}", ephemeral=True)
         
-        # Initial greeting with AI auto-response notice
         await ticket_channel.send(
             f"Welcome {interaction.user.mention}! Staff has been notified.\n"
             "*AstriaBot AI is listening—feel free to type your issue below for an instant answer while you wait for human support!*"
