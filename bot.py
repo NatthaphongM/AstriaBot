@@ -13,8 +13,9 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from groq import AsyncGroq
 from colorama import Fore, Style, init
+from aiohttp import web
 
-# Setup Terminal Colorama and Logging
+# Setup Terminal Formatting and Logging
 init(autoreset=True)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 load_dotenv()
@@ -26,7 +27,7 @@ WELCOME_CHANNEL_ID = int(os.getenv("WELCOME_CHANNEL_ID", "0"))
 AUTO_ROLE_ID = int(os.getenv("AUTO_ROLE_ID", "0"))
 
 if not DISCORD_TOKEN or not GROQ_API_KEY:
-    raise ValueError("Missing essential API tokens in .env file!")
+    raise ValueError("Missing essential API tokens (DISCORD_BOT_TOKEN or GROQ_API_KEY)!")
 
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
@@ -37,7 +38,7 @@ intents.message_content = True
 
 # --- HELPER FUNCTIONS ---
 def chunk_text(text: str, limit: int = 1900) -> list[str]:
-    """Splits text into safely deliverable chunks under Discord's 2000 character limit."""
+    """Splits long AI responses into safe chunks under Discord's 2000 character limit."""
     if len(text) <= limit:
         return [text]
     chunks = []
@@ -55,7 +56,7 @@ def chunk_text(text: str, limit: int = 1900) -> list[str]:
     return chunks
 
 
-# --- TICKET SYSTEM (PERSISTENT COMPONENTS) ---
+# --- TICKET SYSTEM (PERSISTENT UI) ---
 class TicketControlView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -120,7 +121,7 @@ class AstriaBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         self.conversation_history = defaultdict(list)
         self.user_cooldowns = {}
-        self.warnings = defaultdict(list)  # Warning logs memory
+        self.warnings = defaultdict(list)
 
     async def setup_hook(self):
         self.add_view(AIInteractiveTicketView())
@@ -243,11 +244,35 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
-# ===========================================================================
-# 10 NEW ADVANCED COMMANDS & FUNCTIONS
-# ===========================================================================
+# --- SLASH COMMANDS ---
+@bot.tree.command(name="ask", description="Query AstriaBot's advanced Groq AI brain.")
+async def ask(interaction: discord.Interaction, prompt: str):
+    await interaction.response.defer()
+    try:
+        chat_completion = await groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            model="openai/gpt-oss-120b",
+            max_tokens=850,
+        )
+        answer = chat_completion.choices[0].message.content
 
-# --- 1. SERVER INFO ---
+        if len(answer) < 1000:
+            embed = discord.Embed(title="🧠 AstriaBot Intelligence", color=discord.Color.purple())
+            embed.add_field(name="Prompt", value=prompt, inline=False)
+            embed.add_field(name="Response", value=answer, inline=False)
+            embed.set_footer(text="Cosmic Hangout AI • Powered by Groq")
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send(f"**Prompt:** {prompt}\n\n{answer[:1900]}")
+
+    except Exception as e:
+        await interaction.followup.send("⚠️ Failed to reach AI backend.", ephemeral=True)
+        logging.error(f"Groq Slash Command Error: {e}")
+
+
 @bot.tree.command(name="serverinfo", description="Display detailed server stats and information.")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
@@ -263,7 +288,6 @@ async def serverinfo(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-# --- 2. USER INFO ---
 @bot.tree.command(name="userinfo", description="Display profile information about a member.")
 async def userinfo(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     target = member or interaction.user
@@ -278,7 +302,6 @@ async def userinfo(interaction: discord.Interaction, member: Optional[discord.Me
     await interaction.response.send_message(embed=embed)
 
 
-# --- 3. AVATAR FETCH ---
 @bot.tree.command(name="avatar", description="Get high-res avatar of a member.")
 async def avatar(interaction: discord.Interaction, member: Optional[discord.Member] = None):
     target = member or interaction.user
@@ -287,7 +310,6 @@ async def avatar(interaction: discord.Interaction, member: Optional[discord.Memb
     await interaction.response.send_message(embed=embed)
 
 
-# --- 4. POLL SYSTEM ---
 @bot.tree.command(name="poll", description="Create an interactive server poll (up to 5 choices).")
 async def poll(
     interaction: discord.Interaction,
@@ -320,7 +342,6 @@ async def poll(
         await poll_msg.add_reaction(emojis[idx])
 
 
-# --- 5. CHANNEL LOCKDOWN ---
 @bot.tree.command(name="lockdown", description="Lock or unlock the current channel for @everyone.")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def lockdown(interaction: discord.Interaction, lock: bool, reason: str = "No reason specified"):
@@ -336,11 +357,14 @@ async def lockdown(interaction: discord.Interaction, lock: bool, reason: str = "
 
     await channel.set_permissions(interaction.guild.default_role, overwrite=overwrite)
     
-    embed = discord.Embed(title=action_text, description=f"**Reason:** {reason}", color=discord.Color.red() if lock else discord.Color.green())
+    embed = discord.Embed(
+        title=action_text,
+        description=f"**Reason:** {reason}",
+        color=discord.Color.red() if lock else discord.Color.green()
+    )
     await interaction.response.send_message(embed=embed)
 
 
-# --- 6. MODERATION WARNING SYSTEM ---
 @bot.tree.command(name="warn", description="Issue a official warning to a member.")
 @app_commands.checks.has_permissions(moderate_members=True)
 async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
@@ -354,6 +378,7 @@ async def warn(interaction: discord.Interaction, member: discord.Member, reason:
     embed.add_field(name="Reason", value=reason, inline=False)
     embed.add_field(name="Total Warnings", value=str(len(bot.warnings[member.id])), inline=False)
     await interaction.response.send_message(embed=embed)
+
 
 @bot.tree.command(name="warnings", description="Check warnings issued to a member.")
 @app_commands.checks.has_permissions(moderate_members=True)
@@ -373,11 +398,11 @@ async def warnings(interaction: discord.Interaction, member: discord.Member):
     await interaction.response.send_message(embed=embed)
 
 
-# --- 7. GAMING UTILITIES (DICE & COINFLIP) ---
 @bot.tree.command(name="roll", description="Roll a random number (Default 1-100).")
 async def roll(interaction: discord.Interaction, max_val: int = 100):
     result = random.randint(1, max_val)
     await interaction.response.send_message(f"🎲 {interaction.user.mention} rolled **{result}** (1-{max_val})!")
+
 
 @bot.tree.command(name="coinflip", description="Flip a coin!")
 async def coinflip(interaction: discord.Interaction):
@@ -385,7 +410,6 @@ async def coinflip(interaction: discord.Interaction):
     await interaction.response.send_message(f"🪙 {interaction.user.mention} flipped **{outcome}**!")
 
 
-# --- 8. CLEAR AI CONVERSATION HISTORY ---
 @bot.tree.command(name="clearmemory", description="Clear AstriaBot's AI memory for this channel.")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clearmemory(interaction: discord.Interaction):
@@ -393,41 +417,11 @@ async def clearmemory(interaction: discord.Interaction):
     await interaction.response.send_message("🧹 AstriaBot's AI memory for this channel has been wiped!", ephemeral=True)
 
 
-# --- 9. PING & BOT STATUS ---
 @bot.tree.command(name="ping", description="Check bot connection latency.")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     embed = discord.Embed(title="🏓 Pong!", description=f"WebSocket Latency: **{latency}ms**", color=discord.Color.green())
     await interaction.response.send_message(embed=embed)
-
-
-# --- 10. BASE AI SLASH & TICKET PANEL SETUP ---
-@bot.tree.command(name="ask", description="Query AstriaBot's advanced Groq AI brain.")
-async def ask(interaction: discord.Interaction, prompt: str):
-    await interaction.response.defer()
-    try:
-        chat_completion = await groq_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            model="llama-3.3-70b-versatile",
-            max_tokens=850,
-        )
-        answer = chat_completion.choices[0].message.content
-
-        if len(answer) < 1000:
-            embed = discord.Embed(title="🧠 AstriaBot Intelligence", color=discord.Color.purple())
-            embed.add_field(name="Prompt", value=prompt, inline=False)
-            embed.add_field(name="Response", value=answer, inline=False)
-            embed.set_footer(text="Cosmic Hangout AI • Powered by Groq")
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send(f"**Prompt:** {prompt}\n\n{answer[:1900]}")
-
-    except Exception as e:
-        await interaction.followup.send("⚠️ Failed to reach AI backend.", ephemeral=True)
-        logging.error(f"Groq Slash Command Error: {e}")
 
 
 @bot.tree.command(name="settickets", description="Deploy the AI Support Ticket Panel.")
@@ -453,5 +447,27 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
         logging.error(f"Unhandled Command Error: {error}")
 
 
-# Launch Bot
-bot.run(DISCORD_TOKEN)
+# --- WEB SERVER FOR RENDER & UPTIMEROBOT ---
+async def handle_ping(request):
+    return web.Response(text="AstriaBot is alive and healthy!")
+
+
+async def main():
+    # 1. Start HTTP Health Check Server (Prevents Render port timeouts)
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.getenv("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logging.info(f"Health check server listening on port {port}")
+
+    # 2. Launch Discord Bot Connection
+    async with bot:
+        await bot.start(DISCORD_TOKEN)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
