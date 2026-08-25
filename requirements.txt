@@ -1,4 +1,4 @@
-discord.py
-python-dotenv
-groq
-colorama
+discord.py>=2.3.0
+python-dotenv>=1.0.0
+groq>=0.4.0
+colorama>=0.4.6
