@@ -158,7 +158,8 @@ async def on_ready():
     print(f"   AstriaBot ULTRA Online: {bot.user.name}")
     print(f"   ID: {bot.user.id}")
     print(f"=========================================={Style.RESET_ALL}")
-    await bot.change_presence(activity=discord.Game(name="Cosmic Hangout | /ask"))
+    # Updated status to Playing Valorant
+    await bot.change_presence(activity=discord.Game(name="Valorant"))
 
 
 @bot.event
